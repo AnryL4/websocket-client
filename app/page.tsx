@@ -1,16 +1,27 @@
 'use client';
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
-interface IMessages {
+interface IMessage {
   id: string;
   name: string;
   message: string;
   date: string;
+  sending: boolean;
 }
+
+const formatter = new Intl.DateTimeFormat('ru', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: true,
+});
 
 export default function Home() {
   const [userName, setUserName] = useState('Anonymous');
-  const [localMessages, setLocalMessages] = useState<IMessages[]>([]);
+  const [localMessages, setLocalMessages] = useState<IMessage[]>([]);
 
   const socket = useRef<WebSocket | null>(null);
 
@@ -53,35 +64,29 @@ export default function Home() {
     if (!message?.toString().trim()) {
       return;
     } else {
-      const formatter = new Intl.DateTimeFormat('ru', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
+      const newMessage = {
+        id: uuidv4(),
+        name: userName,
+        message: message + '',
+        date: formatter.format(Date.now()),
+        sending: true,
+      };
 
-      socket.current?.send(
-        JSON.stringify({
-          id: `${Date.now()}-${Math.floor(Math.random() * 100) + 1}`,
-          name: userName,
-          message: message,
-          date: formatter.format(Date.now()),
-        })
-      );
+      socket.current?.send(JSON.stringify({ ...newMessage, sending: false }));
       e.currentTarget.reset();
     }
   };
 
   return (
-    <div className="min-h-screen flex justify-center bg-[#f1d9bd] py-5">
-      <main className="max-w-7xl w-full flex flex-col gap-3">
-        <div className="w-full h-[60%] overflow-scroll scrollbar-w-0 bg-[#f3f2f2] p-2 rounded-md flex flex-col gap-2">
+    <div className="min-h-screen flex justify-center py-5 bg-gradient-to-r  from-sky-500 to-indigo-500">
+      <main className="max-w-6xl w-full flex flex-col gap-3">
+        <div className="w-full max-h-[80%] min-h-[60%] overflow-scroll scrollbar-w-0 bg-[#f3f2f2] p-2 rounded-md flex flex-col gap-2">
           {localMessages.map((message) => {
             return (
               <div
-                className="flex gap-3 border border-solid border-black p-2 rounded-md shadow-md bg-white"
+                className={`flex gap-3 border border-solid border-black p-2 rounded-md shadow-md bg-white ${
+                  message.sending ? 'animate-pulse' : ''
+                }`}
                 key={message.id}
               >
                 <div>{message.date}</div>
@@ -106,6 +111,15 @@ export default function Home() {
               className="bg-[#acffac] hover:bg-[#8ff78f] p-2 rounded-md"
             >
               Send
+            </button>
+            <button
+              className="bg-[#acffac] hover:bg-[#8ff78f] p-2 rounded-md"
+              onClick={(e) => {
+                e.preventDefault();
+                socket.current?.send(JSON.stringify('clearAll'));
+              }}
+            >
+              Clear
             </button>
           </form>
         </div>
